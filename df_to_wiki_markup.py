@@ -1,49 +1,37 @@
 def dataframe_to_mediawiki(df, headers=None, footers=None):
     
-    table = []
-    table.append("{| class='wikitable'")
-    
-    if headers:
-        for header in headers:
-            table.append(f"! colspan='{len(df.columns)}' | {header}")
-            table.append("|-")
-    
-    for level in range(df.columns.nlevels):
-        table_row = "!"
-        i = 0
-        while i < len(df.columns):
-            col = df.columns[i][level]
-            colspan = 1
-            
-            for j in range(i + 1, len(df.columns)):
-                if df.columns[j][level] == col:
-                    colspan += 1
-                else:
-                    break
-            
-            if colspan > 1:
-                table_row += f" colspan='{colspan}' | {col} !!"
+    def format_multilevel_headers():
+        rows = []
+        for level in range(df.columns.nlevels):
+            headers = []
+            i = 0
+            while i < len(df.columns):
+                col = df.columns[i][level]
+                colspan = sum(1 for j in range(i, len(df.columns)) if df.columns[j][level] == col)
+                headers.append(f"colspan='{colspan}' | {col}")
                 i += colspan
-            else:
-                table_row += f"{col} !!"
-                i += 1
-        
-        table_row = table_row.rstrip(" !!")
-        table.append(table_row)
+            rows.append(" !! ".join(headers))
+        return rows
+    
+    table = ["{| class='wikitable'"]
+    
+    # headers
+    if headers:
+        table.extend([f"! colspan='{len(df.columns)}' | {header}" for header in headers])
         table.append("|-")
     
-    for index, row in df.iterrows():
-        table_row = "|"
-        for cell in row:
-            table_row += f" {cell} ||"
-        table_row = table_row.rstrip("||")
-        table.append(table_row)
+    table.extend(format_multilevel_headers())
+    table.append("|-")
+    
+    # rows
+    for _, row in df.iterrows():
+        table.append("| " + " || ".join(map(str, row)))
         table.append("|-")
     
+    # footers
     if footers:
-        for footer in footers:
-            table.append(f"| style=\"text-align:left;\" colspan='{len(df.columns)}' | {footer}")
-            table.append("|-")
+        table.extend([f"| style=\"text-align:left;\" colspan='{len(df.columns)}' | {footer}" for footer in footers])
+        table.append("|-")
     
     table.append("|}")
 
