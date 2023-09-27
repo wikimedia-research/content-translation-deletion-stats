@@ -27,57 +27,65 @@ def generate_quarters(year):
     return quarters
 
 deletion_stats_query = """
-WITH base_counts AS (
-    SELECT
-        wiki_db,
-        SUM(
-            CASE 
-                WHEN ARRAY_CONTAINS(revision_tags, 'contenttranslation') THEN 1 
+WITH 
+    base_counts AS (
+        SELECT
+            wiki_db,
+            
+            -- Counting created CX articles
+            SUM(CASE 
+                    WHEN ARRAY_CONTAINS(revision_tags, 'contenttranslation') THEN 1 
                 ELSE 0 
             END) AS created_cx,
-        SUM(
-            CASE 
-                WHEN ARRAY_CONTAINS(revision_tags, 'contenttranslation') 
-                        AND revision_is_deleted_by_page_deletion = TRUE THEN 1 
+            
+            -- Counting total created articles
+            COUNT(*) AS total_articles,
+            
+            -- Counting deleted CX articles
+            SUM(CASE
+                    WHEN ARRAY_CONTAINS(revision_tags, 'contenttranslation')
+                     AND revision_is_deleted_by_page_deletion 
+                     AND revision_deleted_by_page_deletion_timestamp BETWEEN '{START_DATE}' and '{END_DATE}' THEN 1
                 ELSE 0 
-            END) AS deleted_cx,
-        SUM(
-            CASE 
-                WHEN revision_is_deleted_by_page_deletion = TRUE THEN 1 
+             END) AS deleted_cx,
+             
+            -- Counting total deleted articles
+            SUM(CASE 
+                    WHEN revision_is_deleted_by_page_deletion 
+                     AND revision_deleted_by_page_deletion_timestamp BETWEEN '{START_DATE}' and '{END_DATE}' THEN 1 
                 ELSE 0 
-            END) AS total_deleted,
-        COUNT(*) AS total_articles
-    FROM 
-        wmf.mediawiki_history mwh
-    -- join canonical data about wikis: https://github.com/wikimedia-research/canonical-data/
-    JOIN
-        canonical_data.wikis cdw ON mwh.wiki_db = cdw.database_code
-    WHERE
-        snapshot = '{MW_SNAPSHOT}'
-        AND event_timestamp BETWEEN '{START_DATE}' and '{END_DATE}'
-        -- article namespace only
-        AND page_namespace = 0
-        -- new page creations only
-        AND revision_parent_id = 0
-        AND event_entity = 'revision'
-        AND event_type = 'create'
-        -- remove bots
-        AND size(event_user_is_bot_by) <= 0
-        -- limit to Wikipedias only
-        AND database_group = 'wikipedia'
-        -- limit to that are currently live
-        AND status = 'open'
-    GROUP BY  
-        wiki_db
-)
+            END) AS deleted_articles
+        FROM 
+            wmf.mediawiki_history mwh
+        -- Join canonical data about wikis
+        JOIN
+            canonical_data.wikis cdw ON mwh.wiki_db = cdw.database_code
+        WHERE
+            snapshot = '{MW_SNAPSHOT}'
+            AND event_timestamp BETWEEN '{START_DATE}' and '{END_DATE}'
+            -- Article namespace only
+            AND page_namespace = 0
+            -- New page creations only
+            AND revision_parent_id = 0
+            AND event_entity = 'revision'
+            AND event_type = 'create'
+            -- Remove bots
+            AND size(event_user_is_bot_by) <= 0
+            -- Limit to Wikipedias only
+            AND database_group = 'wikipedia'
+            -- Limit to those that are currently live
+            AND status = 'open'
+        GROUP BY  
+            wiki_db
+    )
 
 SELECT
     wiki_db,
     created_cx,
     total_articles - created_cx AS created_non_cx,
     deleted_cx,
-    total_deleted - deleted_cx AS deleted_non_cx
-FROM 
+    deleted_articles - deleted_cx AS deleted_non_cx            
+FROM
     base_counts
 """
 
