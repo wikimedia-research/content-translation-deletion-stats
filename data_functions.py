@@ -70,7 +70,7 @@ WITH
             AND event_entity = 'revision'
             AND event_type = 'create'
             -- Remove bots
-            AND size(event_user_is_bot_by) <= 0
+            AND size(event_user_is_bot_by_historical) <= 0
             -- Limit to Wikipedias only
             AND database_group = 'wikipedia'
             -- Limit to those that are currently live
