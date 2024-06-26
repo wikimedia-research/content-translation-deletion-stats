@@ -16,7 +16,7 @@ def generate_quarters(year):
         
         snapshot_year, snapshot_month = divmod(dates['end'][1], 12)
         snapshot_year += dates['end'][0]
-        mw_snapshot = f"{snapshot_year}-{snapshot_month+1:02}"
+        mw_snapshot = f"{snapshot_year}-{snapshot_month+2:02}"
 
         quarters[q] = {
             'start_dt': start_dt,
